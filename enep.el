@@ -226,6 +226,7 @@
         (setq enep--my-like-song like-song-list)
         like-song-list)))
 
+;;;###autoload
 (defun enep-play-next-like-song ()
   (interactive)
   (when (eq (alist-get 'start (cdr emms-player-playing-p))
