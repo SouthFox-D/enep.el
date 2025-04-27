@@ -200,9 +200,12 @@
                                                         `(:id ,id :tv -1 :lv -1 :rv -1 :kv -1))
                                                        :object-type 'plist)
                                     :lrc) :lyric))
-         (song-file-name (concat (expand-file-name "~/Music/") (plist-get song-info :name)
-                                 "-" (plist-get (plist-get song-info :al) :name)
-                                 "-" (plist-get (aref (plist-get song-info :ar) 0) :name)
+         (song-name (string-replace "/" "" (plist-get song-info :name)))
+         (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
+         (artist-name (string-replace "/" "" (plist-get (aref (plist-get song-info :ar) 0) :name)))
+         (song-file-name (concat (expand-file-name "~/Music/") song-name
+                                 "-" album-name
+                                 "-" artist-name
                                  ".mp3")))
     (enep--request-callback-chain
      (string-replace "http://" "https://" download-url)
@@ -212,7 +215,7 @@
          (toggle-enable-multibyte-characters)
          (set-buffer-file-coding-system 'raw-text)
          (insert data)
-         (write-region nil nil (concat "/tmp/" (plist-get song-info :name) ".mp3"))))
+         (write-region nil nil (concat "/tmp/" song-name ".mp3"))))
      (plist-get (plist-get song-info :al) :picUrl)
      'binary
      (progn
@@ -221,22 +224,21 @@
            (toggle-enable-multibyte-characters)
            (set-buffer-file-coding-system 'raw-text)
            (insert data)
-           (write-region nil nil (concat "~/Music/" (plist-get (plist-get song-info :al) :name) ".jpg"))))
+           (write-region nil nil (concat "~/Music/" album-name ".jpg"))))
        (with-temp-buffer
          (set-buffer-file-coding-system 'utf-8)
          (insert lrc)
-         (write-region nil nil (concat (expand-file-name "~/Music/") (plist-get song-info :name)
-                                       "-" (plist-get (plist-get song-info :al) :name)
-                                       "-" (plist-get (aref (plist-get song-info :ar) 0) :name)
+         (write-region nil nil (concat (expand-file-name "~/Music/") song-name
+                                       "-" album-name
+                                       "-" artist-name
                                        ".lrc")))
        (let ((process (start-process
                        "lame-process" "*lame*" "lame"
-                       "--ti" (concat (expand-file-name "~/Music/")
-                                      (plist-get (plist-get song-info :al) :name) ".jpg")
-                       "--tt" (plist-get song-info :name)
-                       "--ta" (plist-get (aref (plist-get song-info :ar) 0) :name)
-                       "--tl" (plist-get (plist-get song-info :al) :name)
-                       (concat "/tmp/" (plist-get song-info :name) ".mp3")
+                       "--ti" (concat (expand-file-name "~/Music/") album-name ".jpg")
+                       "--tt" song-name
+                       "--tl" album-name
+                       "--ta" artist-name
+                       (concat "/tmp/" song-name ".mp3")
                        song-file-name)))
          (set-process-sentinel
           process
