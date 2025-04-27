@@ -134,6 +134,23 @@
       :sync t)
     result))
 
+(defmacro enep--request-callback-chain (url encoding callback &rest foarms)
+  `(request
+     ,url
+     :encoding ,encoding
+     :headers '(("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0")
+                ("Accept" . "*/*")
+                ("Referer" . "https://music.163.com"))
+     :success (cl-function
+               (lambda (&key data &allow-other-keys)
+                 (funcall (lambda () ,callback))
+                 ,(when (not (null foarms))
+                    (pcase foarms
+                      (`(,next-url ,next-encoding ,next-callback)
+                       `(enep--request-callback-chain ,next-url ,next-encoding ,next-callback nil))
+                      (`(,next-url ,next-encoding ,next-callback . ,rest)
+                       `(enep--request-callback-chain ,next-url ,next-encoding ,next-callback ,rest))))))))
+
 (defun enep-qr-login ()
   (let ((unikey
          (plist-get (json-parse-string
@@ -179,36 +196,48 @@
                                  "-" (plist-get (plist-get song-info :al) :name)
                                  "-" (plist-get (aref (plist-get song-info :ar) 0) :name)
                                  ".mp3")))
-    (url-copy-file (string-replace "http://" "https://" download-url) (concat "/tmp/" (plist-get song-info :name) ".mp3") t)
-    (url-copy-file (plist-get (plist-get song-info :al) :picUrl)
-                   (concat "~/Music/" (plist-get (plist-get song-info :al) :name) ".jpg") t)
-    (with-current-buffer (find-file-noselect
-                          (concat (expand-file-name "~/Music/") (plist-get song-info :name)
-                                  "-" (plist-get (plist-get song-info :al) :name)
-                                  "-" (plist-get (aref (plist-get song-info :ar) 0) :name)
-                                  ".lrc"))
-      (set-buffer-file-coding-system 'utf-8)
-      (erase-buffer)
-      (insert lrc)
-      (save-buffer)
-      (kill-buffer))
-    (let ((process (start-process
-                    "lame-process" "*lame*" "lame"
-                    "--ti" (concat (expand-file-name "~/Music/")
-                                   (plist-get (plist-get song-info :al) :name) ".jpg")
-                    "--tt" (plist-get song-info :name)
-                    "--ta" (plist-get (aref (plist-get song-info :ar) 0) :name)
-                    "--tl" (plist-get (plist-get song-info :al) :name)
-                    (concat "/tmp/" (plist-get song-info :name) ".mp3")
-                    song-file-name)))
-      (set-process-sentinel
-       process
-       (lambda (process event)
-         (message "Process: %s had the event '%s'" process event)
-         (let ((_ (accept-process-output process)))
-           (when callback
-             (message song-file-name)
-             (funcall callback song-file-name))))))))
+    (enep--request-callback-chain
+     (string-replace "http://" "https://" download-url)
+     'binary
+     (let ((coding-system-for-write 'no-conversion))
+       (with-temp-buffer
+         (toggle-enable-multibyte-characters)
+         (set-buffer-file-coding-system 'raw-text)
+         (insert data)
+         (write-region nil nil (concat "/tmp/" (plist-get song-info :name) ".mp3"))))
+     (plist-get (plist-get song-info :al) :picUrl)
+     'binary
+     (progn
+       (let ((coding-system-for-write 'no-conversion))
+         (with-temp-buffer
+           (toggle-enable-multibyte-characters)
+           (set-buffer-file-coding-system 'raw-text)
+           (insert data)
+           (write-region nil nil (concat "~/Music/" (plist-get (plist-get song-info :al) :name) ".jpg"))))
+       (with-temp-buffer
+         (set-buffer-file-coding-system 'utf-8)
+         (insert lrc)
+         (write-region nil nil (concat (expand-file-name "~/Music/") (plist-get song-info :name)
+                                       "-" (plist-get (plist-get song-info :al) :name)
+                                       "-" (plist-get (aref (plist-get song-info :ar) 0) :name)
+                                       ".lrc")))
+       (let ((process (start-process
+                       "lame-process" "*lame*" "lame"
+                       "--ti" (concat (expand-file-name "~/Music/")
+                                      (plist-get (plist-get song-info :al) :name) ".jpg")
+                       "--tt" (plist-get song-info :name)
+                       "--ta" (plist-get (aref (plist-get song-info :ar) 0) :name)
+                       "--tl" (plist-get (plist-get song-info :al) :name)
+                       (concat "/tmp/" (plist-get song-info :name) ".mp3")
+                       song-file-name)))
+         (set-process-sentinel
+          process
+          (lambda (process event)
+            (message "Process: %s had the event '%s'" process event)
+            (let ((_ (accept-process-output process)))
+              (when callback
+                (message song-file-name)
+                (funcall callback song-file-name))))))))))
 
 (defvar enep--my-like-song '())
 
