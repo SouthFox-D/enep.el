@@ -24,6 +24,9 @@
 (require 'emms-player-mpv)
 
 
+(defvar enep-api-debug nil
+  "Enable to print sent/received request to *Messages* buffer.")
+
 (defun enep--generate-secret-key ()
   "Generate 16 base62 string."
   (let ((base62 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -120,6 +123,9 @@
                   "[/+]"))
          (enc-seckey (enep--rsa-encrypt (reverse secret-key)))
          (result))
+    (when enep-api-debug
+      (message (format "URL -> %s" api-url))
+      (message (format "DATA -> %s" json-object)))
     (request
       api-url
       :type "POST"
