@@ -138,6 +138,8 @@
                 (lambda (&key data &allow-other-keys)
                   (setq result data)))
       :sync t)
+    (when enep-api-debug
+      (message (format "RESP <- %s" result)))
     result))
 
 (defmacro enep--request-callback-chain (url encoding callback &rest foarms)
