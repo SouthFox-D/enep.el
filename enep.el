@@ -24,6 +24,9 @@
 (require 'emms-player-mpv)
 
 
+(defvar enep-repeat-number 0
+  "Repeate playlist current number.")
+
 (defvar enep-api-debug nil
   "Enable to print sent/received request to *Messages* buffer.")
 
@@ -272,14 +275,26 @@
             #'emms-player-mpv-start)
     (setq emms-player-mpv-idle-delay 10)
     (cancel-timer emms-player-mpv-idle-timer))
-  (let ((song-id (seq-random-elt (enep--get-like-song))))
-    (enep-download-music song-id
-                    (lambda (song-filename)
-                      (when emms-player-playing-p
-                        (emms-player-stop))
-                      (emms-add-file song-filename)
-                      (emms-playlist-current-select-last)
-                      (emms-start)))))
+  (when (called-interactively-p 'any)
+    (setq enep-repeat-number 0))
+  (if (not (equal 0 enep-repeat-number))
+    (progn
+      (setq enep-repeat-number (1- enep-repeat-number))
+      (when emms-player-playing-p
+        (emms-player-stop))
+      (emms-start))
+    (let ((song-id (seq-random-elt (enep--get-like-song))))
+      (enep-download-music song-id
+                           (lambda (song-filename)
+                             (when emms-player-playing-p
+                               (emms-player-stop))
+                             (emms-add-file song-filename)
+                             (emms-playlist-current-select-last)
+                             (emms-start))))))
+
+(defun enep-playlist-repeat-current (number)
+  (interactive (list (read-number "Input repeat number:")))
+  (setq enep-repeat-number number))
 
 ;; (setq emms-player-next-function #'enep-play-next-like-song)
 (provide 'enep)
