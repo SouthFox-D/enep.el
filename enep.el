@@ -221,9 +221,10 @@
                 (let ((_ (accept-process-output process)))
                   (when callback
                     (message song-file-name)
-                    (funcall callback song-file-name))))))
-         (copy-file (concat "/tmp/" song-name ".mp3") song-file-name))
-       (delete-file (concat "/tmp/" song-name ".mp3"))))))
+                    (funcall callback song-file-name)
+                    (delete-file (concat "/tmp/" song-name ".mp3")))))))
+         (copy-file (concat "/tmp/" song-name ".mp3") song-file-name)
+         (delete-file (concat "/tmp/" song-name ".mp3")))))))
 
 (defvar enep--my-like-song '())
 
