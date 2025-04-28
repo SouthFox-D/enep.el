@@ -115,7 +115,7 @@
       :data (concat "params=" params "&encSecKey=" enc-seckey)
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
-                  (setq result data)))
+                  (setq result (json-parse-string data :object-type 'plist))))
       :sync t)
     (when enep-api-debug
       (message (format "RESP <- %s" result)))
@@ -140,10 +140,8 @@
 
 (defun enep-qr-login ()
   (let ((unikey
-         (plist-get (json-parse-string
-                     (enep--send-webapi-request "https://music.163.com/weapi/login/qrcode/unikey"
-                                          '(:type 3))
-                     :object-type 'plist)
+         (plist-get (enep--send-webapi-request "https://music.163.com/weapi/login/qrcode/unikey"
+                                               '(:type 3))
                     :unikey)))
     (with-current-buffer (get-buffer-create "*enep-login*")
         (goto-char (point-min))
@@ -162,23 +160,19 @@
 (defun enep-download-music (id &optional callback)
   (let* ((download-url (plist-get
                         (plist-get
-                         (json-parse-string
-                          (enep--send-webapi-request
-                           "https://music.163.com/weapi/song/enhance/download/url"
-                           `(:id ,id
-                             :br 192000))
-                          :object-type 'plist) :data) :url))
-         (song-info (aref (plist-get (json-parse-string
-                                      (enep--send-webapi-request
-                                       "https://music.163.com/weapi/v3/song/detail"
-                                       `(:c ,(concat "[" (format "{\"id\":%s}" id) "]")))
-                                      :object-type 'plist) :songs)
-                          0))
-         (lrc (plist-get (plist-get (json-parse-string (enep--send-webapi-request
-                                                        "https://music.163.com/weapi/song/lyric"
-                                                        `(:id ,id :tv -1 :lv -1 :rv -1 :kv -1))
-                                                       :object-type 'plist)
-                                    :lrc) :lyric))
+                         (enep--send-webapi-request
+                          "https://music.163.com/weapi/song/enhance/download/url"
+                          `(:id ,id
+                            :br 192000))
+                          :data) :url))
+         (song-info (aref (plist-get (enep--send-webapi-request
+                                      "https://music.163.com/weapi/v3/song/detail"
+                                      `(:c ,(concat "[" (format "{\"id\":%s}" id) "]")))
+                                     :songs) 0))
+         (lrc (plist-get (plist-get (enep--send-webapi-request
+                                     "https://music.163.com/weapi/song/lyric"
+                                     `(:id ,id :tv -1 :lv -1 :rv -1 :kv -1))
+                                     :lrc) :lyric))
          (song-name (string-replace "/" "" (plist-get song-info :name)))
          (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
          (artist-name (string-replace "/" "" (plist-get (aref (plist-get song-info :ar) 0) :name)))
@@ -232,15 +226,14 @@
 
 (defun enep--get-like-song ()
   (or enep--my-like-song
-      (let* ((my-uid (plist-get (plist-get (json-parse-string
-                                            (enep--send-webapi-request "https://music.163.com/weapi/nuser/account/get"
-                                                                       '())
-                                            :object-type 'plist)
-                                           :account)
-                                :id))
-             (like-song-list (plist-get (json-parse-string (enep--send-webapi-request "https://music.163.com/weapi/song/like/get"
-                                                                                `(:uid ,my-uid))
-                                                           :object-type 'plist) :ids)))
+      (let* ((my-uid (plist-get (plist-get (enep--send-webapi-request
+                                            "https://music.163.com/weapi/nuser/account/get"
+                                            '())
+                                           :account) :id))
+             (like-song-list (plist-get (enep--send-webapi-request
+                                         "https://music.163.com/weapi/song/like/get"
+                                         `(:uid ,my-uid))
+                                        :ids)))
         (setq enep--my-like-song like-song-list)
         like-song-list)))
 
