@@ -244,10 +244,9 @@
 ;;;###autoload
 (defun enep-play-next-like-song ()
   (interactive)
-  (when (eq (alist-get 'start (cdr emms-player-playing-p))
-            #'emms-player-mpv-start)
+  (when emms-player-mpv-proc
     (setq emms-player-mpv-idle-delay 10)
-    (cancel-timer emms-player-mpv-idle-timer))
+    (run-at-time 5 nil (lambda () (cancel-timer emms-player-mpv-idle-timer))))
   (when (called-interactively-p 'any)
     (setq enep-repeat-number 0))
   (if (not (equal 0 enep-repeat-number))
