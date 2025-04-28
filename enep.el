@@ -205,23 +205,25 @@
                                        "-" album-name
                                        "-" artist-name
                                        ".lrc")))
-       (when (executable-find "lame")
-         (let ((process (start-process
-                         "lame-process" "*lame*" "lame"
-                         "--ti" (concat (expand-file-name "~/Music/") album-name ".jpg")
-                         "--tt" song-name
-                         "--tl" album-name
-                         "--ta" artist-name
-                         (concat "/tmp/" song-name ".mp3")
-                         song-file-name)))
-           (set-process-sentinel
-            process
-            (lambda (process event)
-              (message "Process: %s had the event '%s'" process event)
-              (let ((_ (accept-process-output process)))
-                (when callback
-                  (message song-file-name)
-                  (funcall callback song-file-name)))))))))))
+       (if (executable-find "lame")
+           (let ((process (start-process
+                           "lame-process" "*lame*" "lame"
+                           "--ti" (concat (expand-file-name "~/Music/") album-name ".jpg")
+                           "--tt" song-name
+                           "--tl" album-name
+                           "--ta" artist-name
+                           (concat "/tmp/" song-name ".mp3")
+                           song-file-name)))
+             (set-process-sentinel
+              process
+              (lambda (process event)
+                (message "Process: %s had the event '%s'" process event)
+                (let ((_ (accept-process-output process)))
+                  (when callback
+                    (message song-file-name)
+                    (funcall callback song-file-name))))))
+         (copy-file (concat "/tmp/" song-name ".mp3") song-file-name))
+       (delete-file (concat "/tmp/" song-name ".mp3"))))))
 
 (defvar enep--my-like-song '())
 
