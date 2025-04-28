@@ -144,13 +144,13 @@
                                                '(:type 3))
                     :unikey)))
     (with-current-buffer (get-buffer-create "*enep-login*")
-        (goto-char (point-min))
-        (insert (concat "Go to\n"))
-        (insert (concat "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
-                        "https://music.163.com/login?codekey=" unikey "\n"))
-        (insert "and scan qr code via app, then run:\n")
-        (insert (concat "(enep-check-qr-login \"" unikey "\")"))
-        (switch-to-buffer-other-window (current-buffer)))))
+      (goto-char (point-min))
+      (insert (concat "Go to\n"))
+      (insert (concat "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
+                      "https://music.163.com/login?codekey=" unikey "\n"))
+      (insert "and scan qr code via app, then run:\n")
+      (insert (concat "(enep-check-qr-login \"" unikey "\")"))
+      (switch-to-buffer-other-window (current-buffer)))))
 
 (defun enep-check-qr-login (unikey)
   (message
@@ -164,7 +164,7 @@
                           "https://music.163.com/weapi/song/enhance/download/url"
                           `(:id ,id
                             :br 192000))
-                          :data) :url))
+                         :data) :url))
          (song-info (aref (plist-get (enep--send-webapi-request
                                       "https://music.163.com/weapi/v3/song/detail"
                                       `(:c ,(concat "[" (format "{\"id\":%s}" id) "]")))
@@ -172,7 +172,7 @@
          (lrc (plist-get (plist-get (enep--send-webapi-request
                                      "https://music.163.com/weapi/song/lyric"
                                      `(:id ,id :tv -1 :lv -1 :rv -1 :kv -1))
-                                     :lrc) :lyric))
+                                    :lrc) :lyric))
          (song-name (string-replace "/" "" (plist-get song-info :name)))
          (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
          (artist-name (string-replace "/" "" (plist-get (aref (plist-get song-info :ar) 0) :name)))
@@ -248,11 +248,11 @@
   (when (called-interactively-p 'any)
     (setq enep-repeat-number 0))
   (if (not (equal 0 enep-repeat-number))
-    (progn
-      (setq enep-repeat-number (1- enep-repeat-number))
-      (when emms-player-playing-p
-        (emms-player-stop))
-      (emms-start))
+      (progn
+        (setq enep-repeat-number (1- enep-repeat-number))
+        (when emms-player-playing-p
+          (emms-player-stop))
+        (emms-start))
     (let ((song-id (seq-random-elt (enep--get-like-song))))
       (enep-download-music song-id
                            (lambda (song-filename)
