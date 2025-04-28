@@ -77,30 +77,6 @@
         (concat (make-string (- (length enc-text) 256) ?0) enc-text)
       enc-text)))
 
-(defun enep--send-linuxapi-request (json-object)
-  "Send linux request to api."
-  (let ((eparams (shell-command-to-string
-                  (concat "echo -n '"
-                          (string-replace "\\\"" "\"" (json-serialize json-object))
-                          "' | openssl enc -e -aes-128-ecb -K 7246674226682325323f5e6544673a51 --nosalt | "
-                          "xxd -p -u | "
-                          "tr -d '\n'")))
-        (result))
-    ;; (message (concat "eparams=" eparams))
-    (request
-      "https://music.163.com/api/linux/forward"
-      :type "POST"
-      :headers '(("Content-Type" . "application/x-www-form-urlencoded")
-                 ("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0")
-                 ("Accept" . "*/*"))
-      :data (concat "eparams=" eparams)
-      :success (cl-function
-                (lambda (&key data &allow-other-keys)
-                  (prin1 data)
-                  (setq result data)))
-      :sync t)
-    result))
-
 (defun enep--get-csrf-token ()
   (if-let (token (cdr (assoc "__csrf" (request--curl-get-cookies ".music.163.com" "/" t))))
       token
@@ -296,6 +272,5 @@
   (interactive (list (read-number "Input repeat number:")))
   (setq enep-repeat-number number))
 
-;; (setq emms-player-next-function #'enep-play-next-like-song)
 (provide 'enep)
 ;;; enep.el ends here
