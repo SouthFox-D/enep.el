@@ -73,8 +73,8 @@
                                   (string-to-number hex-encoded 16)
                                   (string-to-number key 16)
                                   (string-to-number prim 16))))))
-    (if (> (- (length enc-text) 256) 0)
-        (concat (make-string (- (length enc-text) 256) ?0) enc-text)
+    (if (> (- 256 (length enc-text)) 0)
+        (concat (make-string (- 256 (length enc-text)) ?0) enc-text)
       enc-text)))
 
 (defun enep--get-csrf-token ()
