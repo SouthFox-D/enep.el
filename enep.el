@@ -82,11 +82,8 @@
       token
     ""))
 
-(defun enep--send-webapi-request (api-url json-object &optional retry)
+(defun enep--send-webapi-request (api-url json-object)
   "Send web request to api."
-  (unless (null retry)
-    (when (> retry 3)
-      (error "Retry max limit!")))
   (let* ((secret-key (enep--generate-secret-key))
          (payload (plist-put json-object :csrf_token (enep--get-csrf-token)))
          (eparams (shell-command-to-string
@@ -118,14 +115,7 @@
       :data (concat "params=" params "&encSecKey=" enc-seckey)
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
-                  (if (equal data "")
-                      (progn
-                        (when enep-api-debug
-                          (message (format "RESP <- %s Null response...retry..." result)))
-                        (setq result (enep--send-webapi-request api-url json-object (if (null retry)
-                                                                                        0
-                                                                                      (1+ retry)))))
-                    (setq result (json-parse-string data :object-type 'plist)))))
+                  (setq result (json-parse-string data :object-type 'plist))))
       :sync t)
     (when enep-api-debug
       (message (format "RESP <- %s" result)))
