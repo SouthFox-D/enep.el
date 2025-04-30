@@ -118,7 +118,7 @@
                   (setq result (json-parse-string data :object-type 'plist))))
       :sync t)
     (when enep-api-debug
-      (message (format "RESP <- %s" result)))
+      (message (format "RESP <- %S" result)))
     result))
 
 (defmacro enep--request-callback-chain (url encoding callback &rest foarms)
