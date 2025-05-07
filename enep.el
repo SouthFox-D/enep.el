@@ -111,7 +111,9 @@
       :headers '(("Content-Type" . "application/x-www-form-urlencoded")
                  ("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0")
                  ("Accept" . "*/*")
-                 ("Referer" . "https://music.163.com"))
+                 ("Origin" . "https://music.163.com")
+                 ("Referer" . "https://music.163.com/")
+                 ("Cookie" . "WEVNSM=1.0.0"))
       :data (concat "params=" params "&encSecKey=" enc-seckey)
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
