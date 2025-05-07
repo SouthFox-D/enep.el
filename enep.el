@@ -24,6 +24,19 @@
 (require 'emms-player-mpv)
 
 
+(defgroup enep nil
+  "Netease Cloud Music request in Emacs."
+  :group 'comm
+  :prefix "enep-")
+
+(defcustom enep-music-quality 128000
+  "Default music quality."
+  :type '(choice
+          (integer :tag "128Kbps" 128000)
+          (integer :tag "192Kbps" 192000)
+          (integer :tag "320Kbps" 320000)
+          (integer :tag "flac-350Kbps" 350000)))
+
 (defvar enep-repeat-number 0
   "Repeate playlist current number.")
 
@@ -165,7 +178,7 @@
                          (enep--send-webapi-request
                           "https://music.163.com/weapi/song/enhance/download/url"
                           `(:id ,id
-                            :br 192000))
+                            :br ,enep-music-quality))
                          :data) :url))
          (song-info (aref (plist-get (enep--send-webapi-request
                                       "https://music.163.com/weapi/v3/song/detail"
