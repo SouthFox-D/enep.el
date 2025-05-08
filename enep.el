@@ -271,6 +271,30 @@
         (setq enep--my-like-song like-song-list)
         like-song-list)))
 
+(defun enep--play-song (&optional song-id)
+    (enep-download-music song-id
+                         (lambda (song-filename)
+                           (when emms-player-playing-p
+                             (emms-player-stop))
+                           (emms-add-file song-filename)
+                           (emms-playlist-current-select-last)
+                           (emms-start)))
+    (let ((chorus-info (aref (plist-get (enep--send-webapi-request
+                                         "https://music.163.com/weapi/song/chorus"
+                                         `(:ids [,song-id]))
+                                        :chorus)
+                             0)))
+      (setq enep-player-start-chorus-timer
+            (run-at-time (/ (plist-get chorus-info :startTime) 1000)
+                         nil
+                         (lambda ()
+                           (run-hooks 'enep-player-started-chorus-hook))))
+      (setq enep-player-stop-chorus-timer
+            (run-at-time (/ (plist-get chorus-info :endTime) 1000)
+                         nil
+                         (lambda ()
+                           (run-hooks 'enep-player-stoped-chorus-hook))))))
+
 ;;;###autoload
 (defun enep-play-next-like-song ()
   (interactive)
@@ -288,30 +312,8 @@
         (setq enep-repeat-number (1- enep-repeat-number))
         (when emms-player-playing-p
           (emms-player-stop))
-        (emms-start))
-    (let ((song-id (seq-random-elt (enep--get-like-song))))
-      (enep-download-music song-id
-                           (lambda (song-filename)
-                             (when emms-player-playing-p
-                               (emms-player-stop))
-                             (emms-add-file song-filename)
-                             (emms-playlist-current-select-last)
-                             (emms-start)))
-      (let ((chorus-info (aref (plist-get (enep--send-webapi-request
-                                           "https://music.163.com/weapi/song/chorus"
-                                           `(:ids [,song-id]))
-                                          :chorus)
-                               0)))
-        (setq enep-player-start-chorus-timer
-              (run-at-time (/ (plist-get chorus-info :startTime) 1000)
-                           nil
-                           (lambda ()
-                             (run-hooks 'enep-player-started-chorus-hook))))
-        (setq enep-player-stop-chorus-timer
-              (run-at-time (/ (plist-get chorus-info :endTime) 1000)
-                           nil
-                           (lambda ()
-                             (run-hooks 'enep-player-stoped-chorus-hook))))))))
+        (emms-start)))
+  (enep--play-song (seq-random-elt (enep--get-like-song))))
 
 (defun enep-playlist-repeat-current (number)
   (interactive (list (read-number "Input repeat number:")))
