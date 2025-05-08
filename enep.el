@@ -140,7 +140,8 @@
                  ("Accept" . "*/*")
                  ("Origin" . "https://music.163.com")
                  ("Referer" . "https://music.163.com/")
-                 ("Cookie" . "WEVNSM=1.0.0"))
+                 ("Cookie" . "WEVNSM=1.0.0")
+                 ("Cookie" . "__remember_me=true"))
       :data (concat "params=" params "&encSecKey=" enc-seckey)
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
