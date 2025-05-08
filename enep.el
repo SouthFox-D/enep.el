@@ -43,6 +43,20 @@
 (defvar enep-api-debug nil
   "Enable to print sent/received request to *Messages* buffer.")
 
+(defcustom enep-player-started-chorus-hook nil
+  "Hook run when enep starts play chorus."
+  :group 'enep
+  :type 'hook)
+
+(defvar enep-player-start-chorus-timer nil)
+
+(defcustom enep-player-stoped-chorus-hook nil
+  "Hook run when enep stoped play chorus."
+  :group 'nep
+  :type 'hook)
+
+(defvar enep-player-stop-chorus-timer nil)
+
 (defun enep--generate-secret-key ()
   "Generate 16 base62 string."
   (let ((base62 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -264,6 +278,10 @@
     (run-at-time 5 nil (lambda () (cancel-timer emms-player-mpv-idle-timer))))
   (when (called-interactively-p 'any)
     (setq enep-repeat-number 0))
+  (when enep-player-start-chorus-timer
+    (cancel-timer enep-player-start-chorus-timer))
+  (when enep-player-stop-chorus-timer
+    (cancel-timer enep-player-stop-chorus-timer))
   (if (not (equal 0 enep-repeat-number))
       (progn
         (setq enep-repeat-number (1- enep-repeat-number))
@@ -277,7 +295,22 @@
                                (emms-player-stop))
                              (emms-add-file song-filename)
                              (emms-playlist-current-select-last)
-                             (emms-start))))))
+                             (emms-start)))
+      (let ((chorus-info (aref (plist-get (enep--send-webapi-request
+                                           "https://music.163.com/weapi/song/chorus"
+                                           `(:ids [,song-id]))
+                                          :chorus)
+                               0)))
+        (setq enep-player-start-chorus-timer
+              (run-at-time (/ (plist-get chorus-info :startTime) 1000)
+                           nil
+                           (lambda ()
+                             (run-hooks 'enep-player-started-chorus-hook))))
+        (setq enep-player-stop-chorus-timer
+              (run-at-time (/ (plist-get chorus-info :endTime) 1000)
+                           nil
+                           (lambda ()
+                             (run-hooks 'enep-player-stoped-chorus-hook))))))))
 
 (defun enep-playlist-repeat-current (number)
   (interactive (list (read-number "Input repeat number:")))
