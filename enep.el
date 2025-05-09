@@ -320,7 +320,6 @@ the `request--curl-cookie-jar' ."
                 (message "Process: %s had the event '%s'" process event)
                 (let ((_ (accept-process-output process)))
                   (when callback
-                    (message song-file-name)
                     (funcall callback song-file-name)
                     (delete-file (concat "/tmp/" song-name ".mp3")))))))
          (copy-file (concat "/tmp/" song-name ".mp3") song-file-name)
