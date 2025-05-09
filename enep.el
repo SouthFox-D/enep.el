@@ -211,7 +211,7 @@
 
 (defun enep-qr-login ()
   (let ((unikey
-         (plist-get (enep--send-webapi-request "https://music.163.com/weapi/login/qrcode/unikey"
+         (plist-get (funcall enep-api-function "/login/qrcode/unikey"
                                                '((type . 3)))
                     :unikey)))
     (with-current-buffer (get-buffer-create "*enep-login*")
@@ -225,7 +225,7 @@
 
 (defun enep-check-qr-login (unikey)
   (message
-   (enep--send-webapi-request "https://music.163.com/weapi/login/qrcode/client/login"
+   (funcall enep-api-function "/login/qrcode/client/login"
                               `((type . 3) (key . ,unikey)))))
 
 (defun enep-download-music (id &optional callback)
