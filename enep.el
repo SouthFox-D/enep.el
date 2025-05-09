@@ -230,6 +230,7 @@ FOARMS: An optional list defining subsequent requests in the chain"
                       (`(,next-url ,next-encoding ,next-callback . ,rest)
                        `(enep--request-callback-chain ,next-url ,next-encoding ,next-callback ,rest))))))))
 
+;;;###autoload
 (defun enep-qr-login ()
   "Display a QR code URL for login in *enep-login* buffer."
   (let ((unikey
