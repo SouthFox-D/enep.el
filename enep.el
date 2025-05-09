@@ -44,7 +44,7 @@
           (integer :tag "flac-350Kbps" 350000)))
 
 
-(defcustom enep-music-path "~/Music/NeteaseMusic"
+(defcustom enep-music-path "~/Music/NeteaseMusic/"
   "Default music path."
   :group 'enep
   :type 'function)
