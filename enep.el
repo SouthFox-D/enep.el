@@ -5,8 +5,7 @@
 ;; Author: SouthFox <master@southfox.me>
 ;; Maintainer: SouthFox <master@southfox.me>
 ;; Created: April 27, 2025
-;; Modified: April 27, 2025
-;; Version: 0.0.1
+;; Version: 0.1.0
 ;; Keywords: comm
 ;; Homepage: https://git.southfox.me/elisp/enep.el
 ;; Package-Requires: ((emacs "28.1"))
