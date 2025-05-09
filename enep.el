@@ -30,7 +30,7 @@
   :prefix "enep-")
 
 (defcustom enep-api-function 'enep--send-api-request
-  "A function to send api request"
+  "A function to send api request."
   :group 'enep
   :type 'function
   :options '(enep--send-webapi-request
@@ -86,9 +86,10 @@
    (number-sequence 0 (1- (length input-string)))
    ""))
 
-;; Pick for emscs-rsa: https://github.com/skeeto/emacs-rsa
+;; Adopted from emscs-rsa: https://github.com/skeeto/emacs-rsa
 (defun enep--rsa-mod-pow (base exponent modulus)
-  "Modular exponentiation using right-to-left binary method."
+  "Compute (BASE ^ EXPONENT) mod MODULUS efficiently.
+BASE, EXPONENT, and MODULUS should be integers."
   (let ((result 1))
     (setf base (calc-eval "$1 % $2" nil base modulus))
     (while (calc-eval "$1 > 0" 'pred exponent)
@@ -99,6 +100,7 @@
     result))
 
 (defun enep--rsa-encrypt (text)
+  "Encrypt TEXT using `enep--rsa-mod-pow' ."
   ;; -----BEGIN PUBLIC KEY-----
   ;; MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDgtQn2JZ34ZC28NWYpAUd98iZ37BUrX/aKzmFbt7clFSs6sXqHauqKWqdtLkF2KexO40H1YTX8z2lSgBBOAxLsvaklV8k4cBFK9snQXE9/DDaFt6Rr7iVZMldczhC0JNgTz+SHXT6CBHuX3e9SdB1Ua44oncaTWz7OBGLbCiK45wIDAQAB
   ;; -----END PUBLIC KEY-----
@@ -118,12 +120,17 @@
       enc-text)))
 
 (defun enep--get-cookie (cookie-name)
+  "Retrieve the value of a specific COOKIE-NAME from .music.163.com.
+
+Returns: A non empty string representing the value of the cookie if found,
+otherwise returns an empty string."
   (if-let (token (cdr (assoc cookie-name (request--curl-get-cookies ".music.163.com" "/" t))))
       token
     ""))
 
 (defun enep--send-webapi-request (api-url json-object)
-  "Send web request to api."
+  "Send a request to the specified API-URL with the given JSON-OBJECT.
+The request will be simulated as an WEB client."
   (let* ((secret-key (enep--generate-secret-key))
          (payload (push `(csrf_token . ,(enep--get-cookie "__csrf")) json-object))
          (eparams (shell-command-to-string
@@ -165,7 +172,8 @@
     result))
 
 (defun enep--send-api-request (api-url json-object)
-  "Send api request."
+  "Send a request to the specified API-URL with the given JSON-OBJECT.
+The request will be simulated as an Android client."
   (let (result)
     (when enep-api-debug
       (message (format "URL -> %s" api-url))
@@ -199,6 +207,12 @@
     result))
 
 (defmacro enep--request-callback-chain (url encoding callback &rest foarms)
+  "Define a chain of asynchronous HTTP requests with callbacks.
+URL: The URL for the initial HTTP request (a string).
+ENCODING: The encoding for the initial request.
+CALLBACK: Representing the function to call upon completion
+          of the request.
+FOARMS: An optional list defining subsequent requests in the chain"
   `(request
      ,url
      :encoding ,encoding
@@ -216,9 +230,11 @@
                        `(enep--request-callback-chain ,next-url ,next-encoding ,next-callback ,rest))))))))
 
 (defun enep-qr-login ()
+  "Display a QR code URL for login in *enep-login* buffer."
   (let ((unikey
-         (plist-get (funcall enep-api-function "/login/qrcode/unikey"
-                                               '((type . 3)))
+         (plist-get (funcall enep-api-function
+                             "/login/qrcode/unikey"
+                             '((type . 3)))
                     :unikey)))
     (with-current-buffer (get-buffer-create "*enep-login*")
       (goto-char (point-min))
@@ -230,25 +246,30 @@
       (switch-to-buffer-other-window (current-buffer)))))
 
 (defun enep-check-qr-login (unikey)
+  "Check the login status of a QR code using its UNIKEY.
+Upon successful login, cookies will be written to
+the `request--curl-cookie-jar' ."
   (message
-   (funcall enep-api-function "/login/qrcode/client/login"
-                              `((type . 3) (key . ,unikey)))))
+   (funcall enep-api-function
+            "/login/qrcode/client/login"
+            `((type . 3) (key . ,unikey)))))
 
 (defun enep-download-music (id &optional callback)
+  "Download a music file with the given ID and optional CALLBACK function."
   (let* ((download-url (plist-get
                         (plist-get
                          (funcall enep-api-function
-                          "/song/enhance/download/url"
-                          `((id . ,id)
-                            (br . ,enep-music-quality)))
+                                  "/song/enhance/download/url"
+                                  `((id . ,id)
+                                    (br . ,enep-music-quality)))
                          :data) :url))
          (song-info (aref (plist-get (funcall enep-api-function
-                                      "/v3/song/detail"
-                                      `((c . ,(concat "[" (format "{\"id\":%s}" id) "]"))))
+                                              "/v3/song/detail"
+                                              `((c . ,(concat "[" (format "{\"id\":%s}" id) "]"))))
                                      :songs) 0))
          (lrc (plist-get (plist-get (funcall enep-api-function
-                                     "/song/lyric"
-                                     `((id . ,id) (tv . -1) (lv . -1) (rv . -1) (kv . -1)))
+                                             "/song/lyric"
+                                             `((id . ,id) (tv . -1) (lv . -1) (rv . -1) (kv . -1)))
                                     :lrc) :lyric))
          (song-name (string-replace "/" "" (plist-get song-info :name)))
          (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
@@ -307,44 +328,47 @@
 (defvar enep--my-like-song '())
 
 (defun enep--get-like-song ()
+  "Retrieve the user's liked song list."
   (or enep--my-like-song
       (let* ((my-uid (plist-get (plist-get (funcall enep-api-function
-                                            "/nuser/account/get"
-                                            '())
+                                                    "/nuser/account/get"
+                                                    '())
                                            :account) :id))
              (like-song-list (plist-get (funcall enep-api-function
-                                         "/song/like/get"
-                                         `((uid . ,my-uid)))
+                                                 "/song/like/get"
+                                                 `((uid . ,my-uid)))
                                         :ids)))
         (setq enep--my-like-song like-song-list)
         like-song-list)))
 
 (defun enep--play-song (&optional song-id)
-    (enep-download-music song-id
-                         (lambda (song-filename)
-                           (when emms-player-playing-p
-                             (emms-player-stop))
-                           (emms-add-file song-filename)
-                           (emms-playlist-current-select-last)
-                           (emms-start)))
-    (let ((chorus-info (aref (plist-get (funcall enep-api-function
-                                         "/song/chorus"
-                                         `((ids . [,song-id])))
-                                        :chorus)
-                             0)))
-      (setq enep-player-start-chorus-timer
-            (run-at-time (/ (plist-get chorus-info :startTime) 1000)
-                         nil
-                         (lambda ()
-                           (run-hooks 'enep-player-started-chorus-hook))))
-      (setq enep-player-stop-chorus-timer
-            (run-at-time (/ (plist-get chorus-info :endTime) 1000)
-                         nil
-                         (lambda ()
-                           (run-hooks 'enep-player-stoped-chorus-hook))))))
+  "Download and play a song with the given SONG-ID using EMMS."
+  (enep-download-music song-id
+                       (lambda (song-filename)
+                         (when emms-player-playing-p
+                           (emms-player-stop))
+                         (emms-add-file song-filename)
+                         (emms-playlist-current-select-last)
+                         (emms-start)))
+  (let ((chorus-info (aref (plist-get (funcall enep-api-function
+                                               "/song/chorus"
+                                               `((ids . [,song-id])))
+                                      :chorus)
+                           0)))
+    (setq enep-player-start-chorus-timer
+          (run-at-time (/ (plist-get chorus-info :startTime) 1000)
+                       nil
+                       (lambda ()
+                         (run-hooks 'enep-player-started-chorus-hook))))
+    (setq enep-player-stop-chorus-timer
+          (run-at-time (/ (plist-get chorus-info :endTime) 1000)
+                       nil
+                       (lambda ()
+                         (run-hooks 'enep-player-stoped-chorus-hook))))))
 
 ;;;###autoload
 (defun enep-play-next-like-song ()
+  "Play a random song from the user's liked songs."
   (interactive)
   (when emms-player-mpv-proc
     (setq emms-player-mpv-idle-delay 10)
@@ -364,6 +388,7 @@
   (enep--play-song (seq-random-elt (enep--get-like-song))))
 
 (defun enep-playlist-repeat-current (number)
+  "Set the NUMBER of times the next liked song will be repeated."
   (interactive (list (read-number "Input repeat number:")))
   (setq enep-repeat-number number))
 
