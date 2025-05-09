@@ -80,6 +80,7 @@
     secret-key))
 
 (defun enep--elisp-xxd (input-string)
+  "Make hex dump for INPUT-STRING."
   (mapconcat
    (lambda (char)
      (format "%02x" (aref (string-to-unibyte input-string) char)))
