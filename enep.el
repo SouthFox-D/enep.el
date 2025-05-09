@@ -29,6 +29,13 @@
   :group 'comm
   :prefix "enep-")
 
+(defcustom enep-api-function 'enep--send-api-request
+  "A function to send api request"
+  :group 'enep
+  :type 'function
+  :options '(enep--send-webapi-request
+             enep--send-api-request))
+
 (defcustom enep-music-quality 128000
   "Default music quality."
   :type '(choice
@@ -104,15 +111,15 @@
         (concat (make-string (- 256 (length enc-text)) ?0) enc-text)
       enc-text)))
 
-(defun enep--get-csrf-token ()
-  (if-let (token (cdr (assoc "__csrf" (request--curl-get-cookies ".music.163.com" "/" t))))
+(defun enep--get-cookie (cookie-name)
+  (if-let (token (cdr (assoc cookie-name (request--curl-get-cookies ".music.163.com" "/" t))))
       token
     ""))
 
 (defun enep--send-webapi-request (api-url json-object)
   "Send web request to api."
   (let* ((secret-key (enep--generate-secret-key))
-         (payload (plist-put json-object :csrf_token (enep--get-csrf-token)))
+         (payload (push `(csrf_token . ,(enep--get-cookie "__csrf")) json-object))
          (eparams (shell-command-to-string
                    (concat "echo -n '"
                            (json-serialize payload)
@@ -133,7 +140,7 @@
       (message (format "URL -> %s" api-url))
       (message (format "DATA -> %s" json-object)))
     (request
-      api-url
+      (concat "https://music.163.com/weapi" api-url)
       :type "POST"
       :headers '(("Content-Type" . "application/x-www-form-urlencoded")
                  ("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0")
@@ -143,6 +150,40 @@
                  ("Cookie" . "WEVNSM=1.0.0")
                  ("Cookie" . "__remember_me=true"))
       :data (concat "params=" params "&encSecKey=" enc-seckey)
+      :success (cl-function
+                (lambda (&key data &allow-other-keys)
+                  (setq result (json-parse-string data :object-type 'plist))))
+      :sync t)
+    (when enep-api-debug
+      (message (format "RESP <- %S" result)))
+    result))
+
+(defun enep--send-api-request (api-url json-object)
+  "Send api request."
+  (let (result)
+    (when enep-api-debug
+      (message (format "URL -> %s" api-url))
+      (message (format "DATA -> %S" json-object)))
+    (request
+      (concat "https://interface.music.163.com/api" api-url)
+      :type "POST"
+      :headers `(("User-Agent" . "NeteaseMusic/9.1.65.240927161425(9001065);Dalvik/2.1.0 (Linux; U; Android 14; 23013RK75C Build/UKQ1.230804.001)")
+                 ("Accept" . "*/*")
+                 ("Referer" . "https://music.163.com/")
+                 ("Cookie" . ,(format "__csrf=%s" (enep--get-cookie "__csrf")))
+                 ("Cookie" . "os=android")
+                 ("Cookie" . "osver=14")
+                 ("Cookie" . "appver=8.20.20.231215173437")
+                 ("Cookie" . "channel=xiaomi")
+                 ("Cookie" . "mobilename=")
+                 ("Cookie" . ,(format "requestId=%s_%04d"
+                                      (number-to-string (floor (float-time)))
+                                      (random 1000)))
+                 ("Cookie" . ,(format "buildver=%s"
+                                      (substring (number-to-string (floor (float-time))) 0 10)))
+                 ("Cookie" . ,(format "deviceId=%s"
+                                      "C0D2371BCEB0EF25D0F781854C14E777BB068204641929F6CAE0")))
+      :data json-object
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
                   (setq result (json-parse-string data :object-type 'plist))))
@@ -171,7 +212,7 @@
 (defun enep-qr-login ()
   (let ((unikey
          (plist-get (enep--send-webapi-request "https://music.163.com/weapi/login/qrcode/unikey"
-                                               '(:type 3))
+                                               '((type . 3)))
                     :unikey)))
     (with-current-buffer (get-buffer-create "*enep-login*")
       (goto-char (point-min))
@@ -185,23 +226,23 @@
 (defun enep-check-qr-login (unikey)
   (message
    (enep--send-webapi-request "https://music.163.com/weapi/login/qrcode/client/login"
-                              `(:type 3 :key ,unikey))))
+                              `((type . 3) (key . ,unikey)))))
 
 (defun enep-download-music (id &optional callback)
   (let* ((download-url (plist-get
                         (plist-get
-                         (enep--send-webapi-request
-                          "https://music.163.com/weapi/song/enhance/download/url"
-                          `(:id ,id
-                            :br ,enep-music-quality))
+                         (funcall enep-api-function
+                          "/song/enhance/download/url"
+                          `((id . ,id)
+                            (br . ,enep-music-quality)))
                          :data) :url))
-         (song-info (aref (plist-get (enep--send-webapi-request
-                                      "https://music.163.com/weapi/v3/song/detail"
-                                      `(:c ,(concat "[" (format "{\"id\":%s}" id) "]")))
+         (song-info (aref (plist-get (funcall enep-api-function
+                                      "/v3/song/detail"
+                                      `((c . ,(concat "[" (format "{\"id\":%s}" id) "]"))))
                                      :songs) 0))
-         (lrc (plist-get (plist-get (enep--send-webapi-request
-                                     "https://music.163.com/weapi/song/lyric"
-                                     `(:id ,id :tv -1 :lv -1 :rv -1 :kv -1))
+         (lrc (plist-get (plist-get (funcall enep-api-function
+                                     "/song/lyric"
+                                     `((id . ,id) (tv . -1) (lv . -1) (rv . -1) (kv . -1)))
                                     :lrc) :lyric))
          (song-name (string-replace "/" "" (plist-get song-info :name)))
          (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
@@ -260,13 +301,13 @@
 
 (defun enep--get-like-song ()
   (or enep--my-like-song
-      (let* ((my-uid (plist-get (plist-get (enep--send-webapi-request
-                                            "https://music.163.com/weapi/nuser/account/get"
+      (let* ((my-uid (plist-get (plist-get (funcall enep-api-function
+                                            "/nuser/account/get"
                                             '())
                                            :account) :id))
-             (like-song-list (plist-get (enep--send-webapi-request
-                                         "https://music.163.com/weapi/song/like/get"
-                                         `(:uid ,my-uid))
+             (like-song-list (plist-get (funcall enep-api-function
+                                         "/song/like/get"
+                                         `((uid . ,my-uid)))
                                         :ids)))
         (setq enep--my-like-song like-song-list)
         like-song-list)))
@@ -279,9 +320,9 @@
                            (emms-add-file song-filename)
                            (emms-playlist-current-select-last)
                            (emms-start)))
-    (let ((chorus-info (aref (plist-get (enep--send-webapi-request
-                                         "https://music.163.com/weapi/song/chorus"
-                                         `(:ids [,song-id]))
+    (let ((chorus-info (aref (plist-get (funcall enep-api-function
+                                         "/song/chorus"
+                                         `((ids . [,song-id])))
                                         :chorus)
                              0)))
       (setq enep-player-start-chorus-timer
