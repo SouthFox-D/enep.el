@@ -44,6 +44,12 @@
           (integer :tag "320Kbps" 320000)
           (integer :tag "flac-350Kbps" 350000)))
 
+
+(defcustom enep-music-path "~/Music/NeteaseMusic"
+  "Default music path."
+  :group 'enep
+  :type 'function)
+
 (defvar enep-repeat-number 0
   "Repeate playlist current number.")
 
@@ -247,10 +253,11 @@
          (song-name (string-replace "/" "" (plist-get song-info :name)))
          (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
          (artist-name (string-replace "/" "" (plist-get (aref (plist-get song-info :ar) 0) :name)))
-         (song-file-name (concat (expand-file-name "~/Music/") song-name
+         (song-file-name (concat (expand-file-name enep-music-path) song-name
                                  "-" album-name
                                  "-" artist-name
                                  ".mp3")))
+    (make-directory enep-music-path t)
     (enep--request-callback-chain
      (string-replace "http://" "https://" download-url)
      'binary
@@ -268,18 +275,18 @@
            (toggle-enable-multibyte-characters)
            (set-buffer-file-coding-system 'raw-text)
            (insert data)
-           (write-region nil nil (concat "~/Music/" album-name ".jpg"))))
+           (write-region nil nil (concat (expand-file-name enep-music-path) album-name ".jpg"))))
        (with-temp-buffer
          (set-buffer-file-coding-system 'utf-8)
          (insert lrc)
-         (write-region nil nil (concat (expand-file-name "~/Music/") song-name
+         (write-region nil nil (concat (expand-file-name enep-music-path) song-name
                                        "-" album-name
                                        "-" artist-name
                                        ".lrc")))
        (if (executable-find "lame")
            (let ((process (start-process
                            "lame-process" "*lame*" "lame"
-                           "--ti" (concat (expand-file-name "~/Music/") album-name ".jpg")
+                           "--ti" (concat (expand-file-name enep-music-path) album-name ".jpg")
                            "--tt" song-name
                            "--tl" album-name
                            "--ta" artist-name
