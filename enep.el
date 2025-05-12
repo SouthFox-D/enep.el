@@ -64,7 +64,7 @@
 
 (defcustom enep-player-stoped-chorus-hook nil
   "Hook run when enep stoped play chorus."
-  :group 'nep
+  :group 'enep
   :type 'hook)
 
 (defvar enep-player-stop-chorus-timer nil)
