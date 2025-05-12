@@ -8,7 +8,7 @@
 * 依赖
 - [[https://github.com/tkf/emacs-request][emacs-request]]
   + curl （需通过 curl 来存储 cookies ）
-- [[https://github.com/tkf/emacs-request][emms]]
+- [[https://www.gnu.org/software/emms/][emms]]
   + mpv （仅测试过 mpv 方式）
 
 可选项：
