@@ -17,7 +17,7 @@
 
 * 使用方式
 使用 =eval-expression= (=M-:=) (或其它方式)运行 =(enep-qr-login)= 进行登录，在浏览器打开里面提示的网址，
-其中会显示一个二维码，使用收集客户端扫码登录后即可按照提示用 =(enep-check-qr-login "xxxxx")= 来进行登录，
+其中会显示一个二维码，使用手机客户端扫码登录后即可按照提示用 =(enep-check-qr-login "xxxxx")= 来进行登录，
 当显示登录成功后，相应的 cookies 会写入到 emacs-request 库里的文件内（默认位置为
 =(concat (file-name-as-directory user-emacs-directory) "request")= ）。
 
@@ -40,6 +40,6 @@
 - 初始版本
 - 播放喜欢音乐列表里的歌 =enep-play-next-like-song=
 - 设置当前音乐循环次数 =enep-playlist-repeat-current=
-- 增加副歌 hook =emms-player-started-hook= =emms-player-stopped-hook=
+- 增加副歌 hook =enep-player-started-chorus-hook= , =enep-player-stoped-chorus-hook=
 - 增加 web 和安卓客户端方式请求 api
 
