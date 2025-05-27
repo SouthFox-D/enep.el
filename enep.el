@@ -280,50 +280,53 @@ the `request--curl-cookie-jar' ."
                                  "-" artist-name
                                  ".mp3")))
     (make-directory enep-music-path t)
-    (enep--request-callback-chain
-     (string-replace "http://" "https://" download-url)
-     'binary
-     (let ((coding-system-for-write 'no-conversion))
-       (with-temp-buffer
-         (toggle-enable-multibyte-characters)
-         (set-buffer-file-coding-system 'raw-text)
-         (insert data)
-         (write-region nil nil (concat "/tmp/" song-name ".mp3"))))
-     (plist-get (plist-get song-info :al) :picUrl)
-     'binary
-     (progn
+    (if (file-exists-p song-file-name)
+      (when callback
+        (funcall callback song-file-name))
+      (enep--request-callback-chain
+       (string-replace "http://" "https://" download-url)
+       'binary
        (let ((coding-system-for-write 'no-conversion))
          (with-temp-buffer
            (toggle-enable-multibyte-characters)
            (set-buffer-file-coding-system 'raw-text)
            (insert data)
-           (write-region nil nil (concat (expand-file-name enep-music-path) album-name ".jpg"))))
-       (with-temp-buffer
-         (set-buffer-file-coding-system 'utf-8)
-         (insert lrc)
-         (write-region nil nil (concat (expand-file-name enep-music-path) song-name
-                                       "-" album-name
-                                       "-" artist-name
-                                       ".lrc")))
-       (if (executable-find "lame")
-           (let ((process (start-process
-                           "lame-process" "*lame*" "lame"
-                           "--ti" (concat (expand-file-name enep-music-path) album-name ".jpg")
-                           "--tt" song-name
-                           "--tl" album-name
-                           "--ta" artist-name
-                           (concat "/tmp/" song-name ".mp3")
-                           song-file-name)))
-             (set-process-sentinel
-              process
-              (lambda (process event)
-                (message "Process: %s had the event '%s'" process event)
-                (let ((_ (accept-process-output process)))
-                  (when callback
-                    (funcall callback song-file-name)
-                    (delete-file (concat "/tmp/" song-name ".mp3")))))))
-         (copy-file (concat "/tmp/" song-name ".mp3") song-file-name)
-         (delete-file (concat "/tmp/" song-name ".mp3")))))))
+           (write-region nil nil (concat "/tmp/" song-name ".mp3"))))
+       (plist-get (plist-get song-info :al) :picUrl)
+       'binary
+       (progn
+         (let ((coding-system-for-write 'no-conversion))
+           (with-temp-buffer
+             (toggle-enable-multibyte-characters)
+             (set-buffer-file-coding-system 'raw-text)
+             (insert data)
+             (write-region nil nil (concat (expand-file-name enep-music-path) album-name ".jpg"))))
+         (with-temp-buffer
+           (set-buffer-file-coding-system 'utf-8)
+           (insert lrc)
+           (write-region nil nil (concat (expand-file-name enep-music-path) song-name
+                                         "-" album-name
+                                         "-" artist-name
+                                         ".lrc")))
+         (if (executable-find "lame")
+             (let ((process (start-process
+                             "lame-process" "*lame*" "lame"
+                             "--ti" (concat (expand-file-name enep-music-path) album-name ".jpg")
+                             "--tt" song-name
+                             "--tl" album-name
+                             "--ta" artist-name
+                             (concat "/tmp/" song-name ".mp3")
+                             song-file-name)))
+               (set-process-sentinel
+                process
+                (lambda (process event)
+                  (message "Process: %s had the event '%s'" process event)
+                  (let ((_ (accept-process-output process)))
+                    (when callback
+                      (funcall callback song-file-name)
+                      (delete-file (concat "/tmp/" song-name ".mp3")))))))
+           (copy-file (concat "/tmp/" song-name ".mp3") song-file-name)
+           (delete-file (concat "/tmp/" song-name ".mp3"))))))))
 
 (defvar enep--my-like-song '())
 
