@@ -387,8 +387,8 @@ the `request--curl-cookie-jar' ."
         (setq enep-repeat-number (1- enep-repeat-number))
         (when emms-player-playing-p
           (emms-player-stop))
-        (emms-start)))
-  (enep--play-song (seq-random-elt (enep--get-like-song))))
+        (emms-start))
+    (enep--play-song (seq-random-elt (enep--get-like-song)))))
 
 (defun enep-playlist-repeat-current (number)
   "Set the NUMBER of times the next liked song will be repeated."
