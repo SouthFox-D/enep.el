@@ -17,6 +17,7 @@
 ;;  Description
 ;;
 ;;; Code:
+(require 'cl-lib)
 (require 'request)
 (require 'browse-url)
 (require 'emms-source-file)
@@ -196,7 +197,17 @@ The request will be simulated as an Android client."
                  ("Cookie" . ,(format "buildver=%s"
                                       (substring (number-to-string (floor (float-time))) 0 10)))
                  ("Cookie" . ,(format "deviceId=%s"
-                                      "C0D2371BCEB0EF25D0F781854C14E777BB068204641929F6CAE0")))
+                                      (let ((part-lengths '(4 4 4 4 4 4 4 5))
+                                            (chars "0123456789ABCDEF"))
+                                        (mapconcat
+                                         (lambda (len)
+                                           (let ((part ""))
+                                             (dotimes (_ len)
+                                               (setq part (concat part
+                                                                  (char-to-string (elt chars (random 16))))))
+                                             part))
+                                         part-lengths
+                                         "_")))))
       :data json-object
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
@@ -216,7 +227,7 @@ FOARMS: An optional list defining subsequent requests in the chain"
   `(request
      ,url
      :encoding ,encoding
-     :headers '(("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0")
+     :headers '(("User-Agent" . "NeteaseMusic/9.1.65.240927161425(9001065);Dalvik/2.1.0 (Linux; U; Android 14; 23013RK75C Build/UKQ1.230804.001")
                 ("Accept" . "*/*")
                 ("Referer" . "https://music.163.com"))
      :success (cl-function
@@ -232,16 +243,28 @@ FOARMS: An optional list defining subsequent requests in the chain"
 ;;;###autoload
 (defun enep-qr-login ()
   "Display a QR code URL for login in *enep-login* buffer."
-  (let ((unikey
-         (plist-get (funcall enep-api-function
-                             "/login/qrcode/unikey"
-                             '((type . 3)))
-                    :unikey)))
+  (let* ((unikey
+          (plist-get (funcall enep-api-function
+                              "/login/qrcode/unikey"
+                              '((type . 3)))
+                     :unikey))
+         (version "v1")
+         (random-num (random 1000000))
+         (device-id (format "unknown-%d" random-num))
+         (platform "web")
+         (action "login")
+         (timestamp (truncate (* (float-time) 1000))))
     (with-current-buffer (get-buffer-create "*enep-login*")
       (goto-char (point-min))
       (insert (concat "Go to\n"))
       (insert (concat "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
-                      "https://music.163.com/login?codekey=" unikey "\n"))
+                      "https://music.163.com/login?codekey=" unikey "&chainId="
+                      (format "%s_%s_%s_%s_%d"
+                              version
+                              device-id
+                              platform
+                              action
+                              timestamp) "\n"))
       (insert "and scan qr code via app, then run:\n")
       (insert (concat "(enep-check-qr-login \"" unikey "\")"))
       (switch-to-buffer-other-window (current-buffer)))))
