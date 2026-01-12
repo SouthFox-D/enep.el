@@ -27,6 +27,7 @@
 例如： =(setq emms-player-next-function #'enep-play-next-like-song)=
 
 * 鸣谢
+- [[https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced][GitHub - NeteaseCloudMusicApiEnhanced/api-enhanced]]
 - NeteaseCloudMusicApi
 - [[https://github.com/qier222/YesPlayMusic][YesPlayMusic]]
 - [[https://github.com/skeeto/emacs-rsa][emacs-rsa]]
