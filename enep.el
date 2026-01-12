@@ -63,8 +63,8 @@
 
 (defvar enep-player-start-chorus-timer nil)
 
-(defcustom enep-player-stoped-chorus-hook nil
-  "Hook run when enep stoped play chorus."
+(defcustom enep-player-stopped-chorus-hook nil
+  "Hook run when enep stopped play chorus."
   :group 'enep
   :type 'hook)
 
@@ -390,7 +390,7 @@ the `request--curl-cookie-jar' ."
           (run-at-time (/ (plist-get chorus-info :endTime) 1000)
                        nil
                        (lambda ()
-                         (run-hooks 'enep-player-stoped-chorus-hook))))))
+                         (run-hooks 'enep-player-stopped-chorus-hook))))))
 
 ;;;###autoload
 (defun enep-play-next-like-song ()
