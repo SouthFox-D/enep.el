@@ -129,9 +129,9 @@ otherwise returns an empty string."
       token
     ""))
 
-(defun enep--send-webapi-request (api-url json-object)
+(defun enep--send-webapi-request (api-url json-object callback)
   "Send a request to the specified API-URL with the given JSON-OBJECT.
-The request will be simulated as an WEB client."
+run CALLBACK last, The request will be simulated as an WEB client."
   (let* ((secret-key (enep--generate-secret-key))
          (payload (push `(csrf_token . ,(enep--get-cookie "__csrf")) json-object))
          (eparams (shell-command-to-string
@@ -148,8 +148,7 @@ The request will be simulated as an WEB client."
                            "' | openssl enc -e -aes-128-cbc -K " (enep--elisp-xxd secret-key)
                            " -iv 30313032303330343035303630373038 --nosalt -A -a"))
                   "[/+]"))
-         (enc-seckey (enep--rsa-encrypt (reverse secret-key)))
-         (result))
+         (enc-seckey (enep--rsa-encrypt (reverse secret-key))))
     (when enep-api-debug
       (message (format "URL -> %s" api-url))
       (message (format "DATA -> %s" json-object)))
@@ -166,56 +165,70 @@ The request will be simulated as an WEB client."
       :data (concat "params=" params "&encSecKey=" enc-seckey)
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
-                  (setq result (json-parse-string data :object-type 'plist))))
-      :sync t)
-    (when enep-api-debug
-      (message (format "RESP <- %S" result)))
-    result))
+                  (when enep-api-debug
+                    (message (format "RESP <- %S" data)))
+                  (funcall callback (json-parse-string data :object-type 'plist))))))
+  nil)
 
-(defun enep--send-api-request (api-url json-object)
+(defun enep--send-api-request (api-url json-object callback)
   "Send a request to the specified API-URL with the given JSON-OBJECT.
-The request will be simulated as an Android client."
-  (let (result)
-    (when enep-api-debug
-      (message (format "URL -> %s" api-url))
-      (message (format "DATA -> %S" json-object)))
-    (request
-      (concat "https://interface.music.163.com/api" api-url)
-      :type "POST"
-      :headers `(("User-Agent" . "NeteaseMusic/9.1.65.240927161425(9001065);Dalvik/2.1.0 (Linux; U; Android 14; 23013RK75C Build/UKQ1.230804.001)")
-                 ("Accept" . "*/*")
-                 ("Referer" . "https://music.163.com/")
-                 ("Cookie" . ,(format "__csrf=%s" (enep--get-cookie "__csrf")))
-                 ("Cookie" . "os=android")
-                 ("Cookie" . "osver=14")
-                 ("Cookie" . "appver=8.20.20.231215173437")
-                 ("Cookie" . "channel=xiaomi")
-                 ("Cookie" . "mobilename=")
-                 ("Cookie" . ,(format "requestId=%s_%04d"
-                                      (number-to-string (floor (float-time)))
-                                      (random 1000)))
-                 ("Cookie" . ,(format "buildver=%s"
-                                      (substring (number-to-string (floor (float-time))) 0 10)))
-                 ("Cookie" . ,(format "deviceId=%s"
-                                      (let ((part-lengths '(4 4 4 4 4 4 4 5))
-                                            (chars "0123456789ABCDEF"))
-                                        (mapconcat
-                                         (lambda (len)
-                                           (let ((part ""))
-                                             (dotimes (_ len)
-                                               (setq part (concat part
-                                                                  (char-to-string (elt chars (random 16))))))
-                                             part))
-                                         part-lengths
-                                         "_")))))
-      :data json-object
-      :success (cl-function
-                (lambda (&key data &allow-other-keys)
-                  (setq result (json-parse-string data :object-type 'plist))))
-      :sync t)
-    (when enep-api-debug
-      (message (format "RESP <- %S" result)))
-    result))
+run CALLBACK last, The request will be simulated as an Android client."
+  (when enep-api-debug
+    (message (format "URL -> %s" api-url))
+    (message (format "DATA -> %S" json-object)))
+  (request
+    (concat "https://interface.music.163.com/api" api-url)
+    :type "POST"
+    :headers `(("User-Agent" . "NeteaseMusic/9.1.65.240927161425(9001065);Dalvik/2.1.0 (Linux; U; Android 14; 23013RK75C Build/UKQ1.230804.001)")
+               ("Accept" . "*/*")
+               ("Referer" . "https://music.163.com/")
+               ("Cookie" . ,(format "__csrf=%s" (enep--get-cookie "__csrf")))
+               ("Cookie" . "os=android")
+               ("Cookie" . "osver=14")
+               ("Cookie" . "appver=8.20.20.231215173437")
+               ("Cookie" . "channel=xiaomi")
+               ("Cookie" . "mobilename=")
+               ("Cookie" . ,(format "requestId=%s_%04d"
+                                    (number-to-string (floor (float-time)))
+                                    (random 1000)))
+               ("Cookie" . ,(format "buildver=%s"
+                                    (substring (number-to-string (floor (float-time))) 0 10)))
+               ("Cookie" . ,(format "deviceId=%s"
+                                    (let ((part-lengths '(4 4 4 4 4 4 4 5))
+                                          (chars "0123456789ABCDEF"))
+                                      (mapconcat
+                                       (lambda (len)
+                                         (let ((part ""))
+                                           (dotimes (_ len)
+                                             (setq part (concat part
+                                                                (char-to-string (elt chars (random 16))))))
+                                           part))
+                                       part-lengths
+                                       "_")))))
+    :data json-object
+    :success (cl-function
+              (lambda (&key data &allow-other-keys)
+                (when enep-api-debug
+                  (message (format "RESP <- %S" data)))
+                (funcall callback (json-parse-string data :object-type 'plist)))))
+  nil)
+
+(defmacro enep-with-api (bindings &rest body)
+  "Flatten nested API callbacks.
+BINDINGS format: ((VAR (URL PARAMS)) ...) BODY"
+  (if (null bindings)
+      `(progn ,@body)
+    (let* ((binding (car bindings))
+           (var (car binding))
+           (call-info (cadr binding))
+           (url (car call-info))
+           (params (cadr call-info))
+           (rest-bindings (cdr bindings)))
+      `(funcall enep-api-function
+                ,url
+                ,params
+                (lambda (,var)
+                  (enep-with-api ,rest-bindings ,@body))))))
 
 (defmacro enep--request-callback-chain (url encoding callback &rest foarms)
   "Define a chain of asynchronous HTTP requests with callbacks.
@@ -243,129 +256,116 @@ FOARMS: An optional list defining subsequent requests in the chain"
 ;;;###autoload
 (defun enep-qr-login ()
   "Display a QR code URL for login in *enep-login* buffer."
-  (let* ((unikey
-          (plist-get (funcall enep-api-function
-                              "/login/qrcode/unikey"
-                              '((type . 3)))
-                     :unikey))
-         (version "v1")
-         (random-num (random 1000000))
-         (device-id (format "unknown-%d" random-num))
-         (platform "web")
-         (action "login")
-         (timestamp (truncate (* (float-time) 1000))))
-    (with-current-buffer (get-buffer-create "*enep-login*")
-      (goto-char (point-min))
-      (insert (concat "Go to\n"))
-      (insert (concat "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
-                      "https://music.163.com/login?codekey=" unikey "&chainId="
-                      (format "%s_%s_%s_%s_%d"
-                              version
-                              device-id
-                              platform
-                              action
-                              timestamp) "\n"))
-      (insert "and scan qr code via app, then run:\n")
-      (insert (concat "(enep-check-qr-login \"" unikey "\")"))
-      (switch-to-buffer-other-window (current-buffer)))))
+  (enep-with-api
+   ((unikey-data ("/login/qrcode/unikey" '((type . 3)))))
+   (let* ((unikey (plist-get unikey-data :unikey))
+          (version "v1")
+          (random-num (random 1000000))
+          (device-id (format "unknown-%d" random-num))
+          (platform "web")
+          (action "login")
+          (timestamp (truncate (* (float-time) 1000))))
+     (with-current-buffer (get-buffer-create "*enep-login*")
+       (goto-char (point-min))
+       (insert (concat "Go to\n"))
+       (insert (concat "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
+                       "https://music.163.com/login?codekey=" unikey "&chainId="
+                       (format "%s_%s_%s_%s_%d"
+                               version
+                               device-id
+                               platform
+                               action
+                               timestamp) "\n"))
+       (insert "and scan qr code via app, then run:\n")
+       (insert (concat "(enep-check-qr-login \"" unikey "\")"))
+       (switch-to-buffer-other-window (current-buffer))))))
 
 (defun enep-check-qr-login (unikey)
   "Check the login status of a QR code using its UNIKEY.
 Upon successful login, cookies will be written to
 the `request--curl-cookie-jar' ."
-  (message
+  (prin1
    (funcall enep-api-function
             "/login/qrcode/client/login"
             `((type . 3) (key . ,unikey)))))
 
 (defun enep-download-music (id &optional callback)
   "Download a music file with the given ID and optional CALLBACK function."
-  (let* ((download-url (plist-get
-                        (plist-get
-                         (funcall enep-api-function
-                                  "/song/enhance/download/url"
-                                  `((id . ,id)
-                                    (br . ,enep-music-quality)))
-                         :data) :url))
-         (song-info (aref (plist-get (funcall enep-api-function
-                                              "/v3/song/detail"
-                                              `((c . ,(concat "[" (format "{\"id\":%s}" id) "]"))))
-                                     :songs) 0))
-         (lrc (plist-get (plist-get (funcall enep-api-function
-                                             "/song/lyric"
-                                             `((id . ,id) (tv . -1) (lv . -1) (rv . -1) (kv . -1)))
-                                    :lrc) :lyric))
-         (song-name (string-replace "/" "" (plist-get song-info :name)))
-         (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
-         (artist-name (string-replace "/" "" (plist-get (aref (plist-get song-info :ar) 0) :name)))
-         (song-file-name (concat (expand-file-name enep-music-path) song-name
-                                 "-" album-name
-                                 "-" artist-name
-                                 ".mp3")))
-    (make-directory enep-music-path t)
-    (if (file-exists-p song-file-name)
-      (when callback
-        (funcall callback song-file-name))
-      (enep--request-callback-chain
-       (string-replace "http://" "https://" download-url)
-       'binary
-       (let ((coding-system-for-write 'no-conversion))
-         (with-temp-buffer
-           (toggle-enable-multibyte-characters)
-           (set-buffer-file-coding-system 'raw-text)
-           (insert data)
-           (write-region nil nil (concat "/tmp/" song-name ".mp3"))))
-       (plist-get (plist-get song-info :al) :picUrl)
-       'binary
-       (progn
-         (let ((coding-system-for-write 'no-conversion))
-           (with-temp-buffer
-             (toggle-enable-multibyte-characters)
-             (set-buffer-file-coding-system 'raw-text)
-             (insert data)
-             (write-region nil nil (concat (expand-file-name enep-music-path) album-name ".jpg"))))
-         (with-temp-buffer
-           (set-buffer-file-coding-system 'utf-8)
-           (insert lrc)
-           (write-region nil nil (concat (expand-file-name enep-music-path) song-name
-                                         "-" album-name
-                                         "-" artist-name
-                                         ".lrc")))
-         (if (executable-find "lame")
-             (let ((process (start-process
-                             "lame-process" "*lame*" "lame"
-                             "--ti" (concat (expand-file-name enep-music-path) album-name ".jpg")
-                             "--tt" song-name
-                             "--tl" album-name
-                             "--ta" artist-name
-                             (concat "/tmp/" song-name ".mp3")
-                             song-file-name)))
-               (set-process-sentinel
-                process
-                (lambda (process event)
-                  (message "Process: %s had the event '%s'" process event)
-                  (let ((_ (accept-process-output process)))
-                    (when callback
-                      (funcall callback song-file-name)
-                      (delete-file (concat "/tmp/" song-name ".mp3")))))))
-           (copy-file (concat "/tmp/" song-name ".mp3") song-file-name)
-           (delete-file (concat "/tmp/" song-name ".mp3"))))))))
+  (enep-with-api
+   ((url-data ("/song/enhance/download/url" `((id . ,id) (br . ,enep-music-quality))))
+    (detail-data ("/v3/song/detail" `((c . ,(format "[{\"id\":%s}]" id)))))
+    (lyric-data ("/song/lyric" `((id . ,id) (tv . -1) (lv . -1) (rv . -1) (kv . -1)))))
+   (let* ((download-url (plist-get (plist-get url-data :data) :url))
+          (song-info (aref (plist-get detail-data :songs) 0))
+          (lrc (plist-get (plist-get lyric-data :lrc) :lyric))
+          (song-name (string-replace "/" "" (plist-get song-info :name)))
+          (album-name (string-replace "/" "" (plist-get (plist-get song-info :al) :name)))
+          (artist-name (string-replace "/" "" (plist-get (aref (plist-get song-info :ar) 0) :name)))
+          (song-file-name (concat (expand-file-name enep-music-path) song-name
+                                  "-" album-name
+                                  "-" artist-name
+                                  ".mp3")))
+                             (make-directory enep-music-path t)
+                             (if (file-exists-p song-file-name)
+                                 (when callback
+                                   (funcall callback song-file-name))
+                               (enep--request-callback-chain
+                                (string-replace "http://" "https://" download-url)
+                                'binary
+                                (let ((coding-system-for-write 'no-conversion))
+                                  (with-temp-buffer
+                                    (toggle-enable-multibyte-characters)
+                                    (set-buffer-file-coding-system 'raw-text)
+                                    (insert data)
+                                    (write-region nil nil (concat "/tmp/" song-name ".mp3"))))
+                                (plist-get (plist-get song-info :al) :picUrl)
+                                'binary
+                                (progn
+                                  (let ((coding-system-for-write 'no-conversion))
+                                    (with-temp-buffer
+                                      (toggle-enable-multibyte-characters)
+                                      (set-buffer-file-coding-system 'raw-text)
+                                      (insert data)
+                                      (write-region nil nil (concat (expand-file-name enep-music-path) album-name ".jpg"))))
+                                  (with-temp-buffer
+                                    (set-buffer-file-coding-system 'utf-8)
+                                    (insert lrc)
+                                    (write-region nil nil (concat (expand-file-name enep-music-path) song-name
+                                                                  "-" album-name
+                                                                  "-" artist-name
+                                                                  ".lrc")))
+                                  (if (executable-find "lame")
+                                      (let ((process (start-process
+                                                      "lame-process" "*lame*" "lame"
+                                                      "--ti" (concat (expand-file-name enep-music-path) album-name ".jpg")
+                                                      "--tt" song-name
+                                                      "--tl" album-name
+                                                      "--ta" artist-name
+                                                      (concat "/tmp/" song-name ".mp3")
+                                                      song-file-name)))
+                                        (set-process-sentinel
+                                         process
+                                         (lambda (process event)
+                                           (message "Process: %s had the event '%s'" process event)
+                                           (let ((_ (accept-process-output process)))
+                                             (when callback
+                                               (funcall callback song-file-name)
+                                               (delete-file (concat "/tmp/" song-name ".mp3")))))))
+                                    (copy-file (concat "/tmp/" song-name ".mp3") song-file-name)
+                                    (delete-file (concat "/tmp/" song-name ".mp3")))))))))
 
 (defvar enep--my-like-song '())
 
 (defun enep--get-like-song ()
   "Retrieve the user's liked song list."
   (or enep--my-like-song
-      (let* ((my-uid (plist-get (plist-get (funcall enep-api-function
-                                                    "/nuser/account/get"
-                                                    '())
-                                           :account) :id))
-             (like-song-list (plist-get (funcall enep-api-function
-                                                 "/song/like/get"
-                                                 `((uid . ,my-uid)))
-                                        :ids)))
-        (setq enep--my-like-song like-song-list)
-        like-song-list)))
+      (enep-with-api
+       ((uid-data ("/nuser/account/get" '()))
+        (like-song-list-data ("/song/like/get"
+                              `((uid . ,(plist-get (plist-get uid-data :account) :id))))))
+       (let ((like-song-list (plist-get like-song-list-data :ids)))
+         (setq enep--my-like-song like-song-list)
+         like-song-list))))
 
 (defun enep--play-song (&optional song-id)
   "Download and play a song with the given SONG-ID using EMMS."
@@ -376,21 +376,19 @@ the `request--curl-cookie-jar' ."
                          (emms-add-file song-filename)
                          (emms-playlist-current-select-last)
                          (emms-start)))
-  (let ((chorus-info (aref (plist-get (funcall enep-api-function
-                                               "/song/chorus"
-                                               `((ids . [,song-id])))
-                                      :chorus)
-                           0)))
-    (setq enep-player-start-chorus-timer
-          (run-at-time (/ (plist-get chorus-info :startTime) 1000)
-                       nil
-                       (lambda ()
-                         (run-hooks 'enep-player-started-chorus-hook))))
-    (setq enep-player-stop-chorus-timer
-          (run-at-time (/ (plist-get chorus-info :endTime) 1000)
-                       nil
-                       (lambda ()
-                         (run-hooks 'enep-player-stopped-chorus-hook))))))
+  (enep-with-api
+   ((chorus-data ("/song/chorus" `((ids . [,song-id])))))
+   (let ((chorus-info (aref (plist-get chorus-data :chorus) 0)))
+     (setq enep-player-start-chorus-timer
+           (run-at-time (/ (plist-get chorus-info :startTime) 1000)
+                        nil
+                        (lambda ()
+                          (run-hooks 'enep-player-started-chorus-hook))))
+     (setq enep-player-stop-chorus-timer
+           (run-at-time (/ (plist-get chorus-info :endTime) 1000)
+                        nil
+                        (lambda ()
+                          (run-hooks 'enep-player-stopped-chorus-hook)))))))
 
 ;;;###autoload
 (defun enep-play-next-like-song ()
