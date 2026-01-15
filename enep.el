@@ -213,7 +213,7 @@ run CALLBACK last, The request will be simulated as an Android client."
                 (funcall callback (json-parse-string data :object-type 'plist)))))
   nil)
 
-(defmacro enep-with-api (bindings &rest body)
+(defmacro enep-api-let (bindings &rest body)
   "Flatten nested API callbacks.
 BINDINGS format: ((VAR (URL PARAMS)) ...) BODY"
   (if (null bindings)
@@ -228,7 +228,7 @@ BINDINGS format: ((VAR (URL PARAMS)) ...) BODY"
                 ,url
                 ,params
                 (lambda (,var)
-                  (enep-with-api ,rest-bindings ,@body))))))
+                  (enep-api-let ,rest-bindings ,@body))))))
 
 (defmacro enep--request-callback-chain (url encoding callback &rest foarms)
   "Define a chain of asynchronous HTTP requests with callbacks.
@@ -256,7 +256,7 @@ FOARMS: An optional list defining subsequent requests in the chain"
 ;;;###autoload
 (defun enep-qr-login ()
   "Display a QR code URL for login in *enep-login* buffer."
-  (enep-with-api
+  (enep-api-let
    ((unikey-data ("/login/qrcode/unikey" '((type . 3)))))
    (let* ((unikey (plist-get unikey-data :unikey))
           (version "v1")
@@ -291,7 +291,7 @@ the `request--curl-cookie-jar' ."
 
 (defun enep-download-music (id &optional callback)
   "Download a music file with the given ID and optional CALLBACK function."
-  (enep-with-api
+  (enep-api-let
    ((url-data ("/song/enhance/download/url" `((id . ,id) (br . ,enep-music-quality))))
     (detail-data ("/v3/song/detail" `((c . ,(format "[{\"id\":%s}]" id)))))
     (lyric-data ("/song/lyric" `((id . ,id) (tv . -1) (lv . -1) (rv . -1) (kv . -1)))))
@@ -359,7 +359,7 @@ the `request--curl-cookie-jar' ."
 (defun enep--get-like-song ()
   "Retrieve the user's liked song list."
   (or enep--my-like-song
-      (enep-with-api
+      (enep-api-let
        ((uid-data ("/nuser/account/get" '()))
         (like-song-list-data ("/song/like/get"
                               `((uid . ,(plist-get (plist-get uid-data :account) :id))))))
@@ -376,7 +376,7 @@ the `request--curl-cookie-jar' ."
                          (emms-add-file song-filename)
                          (emms-playlist-current-select-last)
                          (emms-start)))
-  (enep-with-api
+  (enep-api-let
    ((chorus-data ("/song/chorus" `((ids . [,song-id])))))
    (let ((chorus-info (aref (plist-get chorus-data :chorus) 0)))
      (setq enep-player-start-chorus-timer
