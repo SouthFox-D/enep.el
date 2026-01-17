@@ -287,7 +287,8 @@ the `request--curl-cookie-jar' ."
   (prin1
    (funcall enep-api-function
             "/login/qrcode/client/login"
-            `((type . 3) (key . ,unikey)))))
+            `((type . 3) (key . ,unikey))
+            (lambda (_) (message "Login!")))))
 
 (defun enep-download-music (id &optional callback)
   "Download a music file with the given ID and optional CALLBACK function."
