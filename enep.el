@@ -44,11 +44,10 @@
           (integer :tag "320Kbps" 320000)
           (integer :tag "flac-350Kbps" 350000)))
 
-
 (defcustom enep-music-path "~/Music/NeteaseMusic/"
   "Default music path."
   :group 'enep
-  :type 'function)
+  :type 'string)
 
 (defvar enep-repeat-number 0
   "Repeate playlist current number.")
