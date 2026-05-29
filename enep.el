@@ -229,13 +229,13 @@ BINDINGS format: ((VAR (URL PARAMS)) ...) BODY"
                 (lambda (,var)
                   (enep-api-let ,rest-bindings ,@body))))))
 
-(defmacro enep--request-callback-chain (url encoding callback &rest foarms)
+(defmacro enep--request-callback-chain (url encoding callback &rest forms)
   "Define a chain of asynchronous HTTP requests with callbacks.
 URL: The URL for the initial HTTP request (a string).
 ENCODING: The encoding for the initial request.
 CALLBACK: Representing the function to call upon completion
           of the request.
-FOARMS: An optional list defining subsequent requests in the chain"
+FORMS: An optional list defining subsequent requests in the chain"
   `(request
      ,url
      :encoding ,encoding
@@ -245,8 +245,8 @@ FOARMS: An optional list defining subsequent requests in the chain"
      :success (cl-function
                (lambda (&key data &allow-other-keys)
                  (funcall (lambda () ,callback))
-                 ,(when (not (null foarms))
-                    (pcase foarms
+                 ,(when (not (null forms))
+                    (pcase forms
                       (`(,next-url ,next-encoding ,next-callback)
                        `(enep--request-callback-chain ,next-url ,next-encoding ,next-callback nil))
                       (`(,next-url ,next-encoding ,next-callback . ,rest)
