@@ -357,18 +357,23 @@ the `request--curl-cookie-jar' ."
 
 (defvar enep--my-like-song '())
 
-(defun enep--get-like-song ()
-  "Retrieve the user's liked song list."
-  (or enep--my-like-song
-      (enep-api-let
-       ((uid-data ("/nuser/account/get" '()))
-        (like-song-list-data ("/song/like/get"
-                              `((uid . ,(plist-get (plist-get uid-data :account) :id))))))
-       (let ((like-song-list (plist-get like-song-list-data :ids)))
-         (setq enep--my-like-song like-song-list)
-         like-song-list))))
+(defun enep--get-like-song (&optional callback)
+  "Retrieve the user's liked song list, and run CALLBACK last."
+  (if enep--my-like-song
+      (if callback
+          (funcall callback enep--my-like-song)
+        enep--my-like-song)
+    (enep-api-let
+         ((uid-data ("/nuser/account/get" '()))
+          (like-song-list-data ("/song/like/get"
+                                `((uid . ,(plist-get (plist-get uid-data :account) :id))))))
+         (let ((like-song-list (plist-get like-song-list-data :ids)))
+           (setq enep--my-like-song like-song-list)
+           (if callback
+               (funcall callback like-song-list)
+             like-song-list)))))
 
-(defun enep--play-song (&optional song-id)
+(defun enep--play-song (song-id)
   "Download and play a song with the given SONG-ID using EMMS."
   (enep-download-music song-id
                        (lambda (song-filename)
@@ -410,7 +415,9 @@ the `request--curl-cookie-jar' ."
         (when emms-player-playing-p
           (emms-player-stop))
         (emms-start))
-    (enep--play-song (seq-random-elt (enep--get-like-song)))))
+    (enep--get-like-song
+     (lambda (like-song-list)
+       (enep--play-song (seq-random-elt like-song-list))))))
 
 (defun enep-playlist-repeat-current (number)
   "Set the NUMBER of times the next liked song will be repeated."
